@@ -3,7 +3,7 @@
     lib_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/debug")
 )]
 mod hot_lib {
-    hot_functions_from_file!("terminal/src/ffi.rs");
+    hot_functions_from_file!("terminal/src/reload.rs");
 
     #[lib_change_subscription]
     pub fn subscribe() -> hot_lib_reloader::LibReloadObserver {}
@@ -12,12 +12,15 @@ mod hot_lib {
 }
 
 fn main() {
-    let mut state = hot_lib::State { counter: 0 };
+    let mut state = hot_lib::build();
 
     let lib_observer = hot_lib::subscribe();
 
+    hot_lib::load(&mut state);
     loop {
-        hot_lib::step(&mut state);
+        lib_observer.wait_for_about_to_reload();
+        state = hot_lib::save(state);
         lib_observer.wait_for_reload();
+        hot_lib::load(&mut state);
     }
 }

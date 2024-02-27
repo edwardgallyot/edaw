@@ -5,7 +5,7 @@ use hot_lib_reloader::*;
     lib_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/debug")
 )]
 mod hot_lib {
-    hot_functions_from_file!("audio_engine/src/ffi.rs");
+    hot_functions_from_file!("audio_engine/src/reload.rs");
 
     #[lib_change_subscription]
     pub fn subscribe() -> hot_lib_reloader::LibReloadObserver {}
@@ -20,6 +20,7 @@ fn main() {
 
     loop {
         hot_lib::step(&mut state);
+        lib_observer.wait_for_about_to_reload();
         lib_observer.wait_for_reload();
     }
 }

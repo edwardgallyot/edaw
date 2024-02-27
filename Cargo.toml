@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "terminal",
+    "audio_engine",
+    "terminal_run",
+    "audio_engine_run"
+]

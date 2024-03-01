@@ -1,35 +1,30 @@
-use crate::terminal::Terminal;
+use crate::tui::Tui;
 
 pub struct State {
-    pub terminal: Terminal,
+    pub tui: Tui,
 }
 
 impl State {
     pub fn new() -> State {
-        State {
-            terminal: Terminal::new(),
-        }
+        State { tui: Tui::new() }
     }
 }
 
 #[no_mangle]
 pub fn build() -> State {
-    State::new()    
+    State::new()
 }
 
 #[no_mangle]
 pub fn save(mut state: State) -> State {
-    state.terminal.run.clone().store(false, std::sync::atomic::Ordering::Relaxed);
-    if let Some(handle) = state.terminal.handle.take() {
-        let _ = handle.join();
-    }
-    state 
+    state.tui.stop();
+    state
 }
 
 #[no_mangle]
-pub fn load(state: &mut State)  {
+pub fn load(state: &mut State) {
     println!("Reloaded terminal");
-    let res = state.terminal.run();
+    let res = state.tui.run();
     match res {
         Err(e) => eprintln!("Error running terminal: {}", e),
         Ok(_) => {}

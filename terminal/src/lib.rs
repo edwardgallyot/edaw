@@ -1,3 +1,3 @@
 mod reload;
-mod terminal;
+mod tui;
 pub use reload::*;

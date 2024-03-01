@@ -1,9 +1,12 @@
+mod audio_io;
+
 use hot_lib_reloader::*;
 
 #[hot_module(
     dylib = "audio_engine",
     lib_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/debug")
 )]
+
 mod hot_lib {
     hot_functions_from_file!("audio_engine/src/reload.rs");
 
@@ -15,12 +18,30 @@ mod hot_lib {
 
 fn main() {
     let mut state = hot_lib::State { counter: 0 };
-    
     let lib_observer = hot_lib::subscribe();
+    let mut audio_io = audio_io::AudioIo::new();
+
+    if let Err(e) = audio_io.configure() {
+        eprintln!("Error configuring I/O: {}", e);
+        return;
+    }
 
     loop {
-        hot_lib::step(&mut state);
+        hot_lib::load(&mut state);
+
+        if let Err(e) = audio_io.start() {
+            eprintln!("Error starting the audio engine: {}", e);
+            return;
+        }
+
         lib_observer.wait_for_about_to_reload();
+
+        if let Err(e) = audio_io.stop() {
+            eprintln!("Error stopping the audio engine: {}", e);
+        }
+
+        state = hot_lib::save(state);
+
         lib_observer.wait_for_reload();
     }
 }

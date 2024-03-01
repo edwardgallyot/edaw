@@ -16,11 +16,10 @@ fn main() {
 
     let lib_observer = hot_lib::subscribe();
 
-    hot_lib::load(&mut state);
     loop {
+        hot_lib::load(&mut state);
         lib_observer.wait_for_about_to_reload();
         state = hot_lib::save(state);
         lib_observer.wait_for_reload();
-        hot_lib::load(&mut state);
     }
 }

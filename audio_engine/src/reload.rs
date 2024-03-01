@@ -3,6 +3,12 @@ pub struct State {
 }
 
 #[no_mangle]
-pub fn step(state: &mut State) {
-    println!("Reload the client");
+pub fn load(state: &mut State) {
+    println!("Reload the server");
+}
+
+#[no_mangle]
+pub fn save(state: State) -> State {
+    println!("Cool: Save the server");
+    state
 }

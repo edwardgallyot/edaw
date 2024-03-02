@@ -7,4 +7,5 @@ edition = "2021"
 crate-type = ["rlib", "dylib"]
 
 [dependencies]
-
+ringbuf = "0.3"
+anyhow = "1.0"

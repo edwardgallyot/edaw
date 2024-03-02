@@ -1,10 +1,24 @@
+use crate::engine::AudioEngine;
+
+#[derive(Default)]
 pub struct State {
-    pub counter: usize,
+    pub engine: Option<AudioEngine>,
+}
+
+impl State {
+    pub fn new() -> State {
+        State::default()
+    }
+
+    pub fn register_audio_engine(&mut self, engine: AudioEngine) {
+        self.engine = Some(engine);
+    }
 }
 
 #[no_mangle]
-pub fn load(state: &mut State) {
+pub fn load(_state: &mut State) {
     println!("Reload the server");
+    
 }
 
 #[no_mangle]

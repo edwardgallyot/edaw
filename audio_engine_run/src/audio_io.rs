@@ -1,15 +1,17 @@
 use std::io::stdin;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
+use audio_engine::audio_channel::{AudioRx, AudioTx};
 use cpal::{
-    platform::AlsaSupportedInputConfigs,
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, SupportedInputConfigs, SupportedStreamConfig, SupportedBufferSize::{Unknown, Range},
+    Device, SupportedStreamConfig, SupportedBufferSize::{Unknown, Range},
 };
+
 use ringbuf::{
     ring_buffer::{RbRead, RbRef, RbWrite},
     Consumer, HeapRb, Producer,
 };
+
 
 fn err_fn(e: cpal::StreamError) {
     eprintln!("error in stream: {}", e);
@@ -30,14 +32,36 @@ impl AudioIo {
         AudioIo::default()
     }
 
-    fn get_latency_samples_from_config(config: &SupportedStreamConfig) -> anyhow::Result<u32> {
-        return match config.buffer_size() {
-            Range { min: _, max } => Ok(max * config.channels() as u32),
+    pub fn get_total_buffer_size(&self) -> anyhow::Result<u32> {
+        let output_config = self
+            .output_config
+            .as_ref()
+            .ok_or(anyhow!("no output config"))?;
+
+        let input_config = self
+            .input_config
+            .as_ref()
+            .ok_or(anyhow!("no input config"))?;
+
+        if input_config.buffer_size() != output_config.buffer_size() {
+            return Err(anyhow!("in: {:?} and out: {:?} buffer sizes don't match",
+                input_config.buffer_size(),
+                output_config.buffer_size()
+            ));
+        }
+
+        return match input_config.buffer_size() {
+            Range { min: _, max } => Ok(max * input_config.channels() as u32),
             Unknown => Err(anyhow!("unknown buffer size")),
         };
     }
 
-    pub fn start(&mut self) -> anyhow::Result<()> {
+    pub fn get_num_channels(&self) {
+
+    }
+
+    pub fn start(&mut self, engine_rx: AudioRx, engine_tx: AudioTx) -> anyhow::Result<()> {
+
         let output_device = self
             .output_device
             .as_mut()
@@ -48,31 +72,12 @@ impl AudioIo {
             .as_mut()
             .ok_or(anyhow!("no input device"))?;
 
-        let output_config = self
-            .output_config
-            .as_ref()
-            .ok_or(anyhow!("no output device"))?;
+        let latency_samples = self.get_total_buffer_size()?;
 
-        let input_config = self
-            .input_config
-            .as_ref()
-            .ok_or(anyhow!("no input device"))?;
-
-        let input_latency_samples = AudioIo::get_latency_samples_from_config(&input_config)?;
-        let output_latency_samples = AudioIo::get_latency_samples_from_config(&output_config)?;
-
-        if input_latency_samples != output_latency_samples {
-            return Err(anyhow!(
-                "in latency: {}, and out latency: {} don't match",
-                input_latency_samples,
-                output_latency_samples
-            ));
-        }
-
-        let ring = HeapRb::<f32>::new((input_latency_samples * 2) as usize);
+        let ring = HeapRb::<f32>::new((latency_samples * 4) as usize);
         let (mut tx, mut rx) = ring.split();
 
-        for _ in 0..input_latency_samples {
+        for _ in 0..latency_samples {
             if let Err(e) = tx.push(0.0) {
                 return Err(anyhow!("couldn't init ring buffer: {}", e));
             }
@@ -82,15 +87,33 @@ impl AudioIo {
             AudioIo::input_callback(data, &mut tx);
         };
 
+
         let out_callback = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-            AudioIo::output_callback(data, &mut rx);
+            AudioIo::output_callback(data, &mut rx, &mut engine_rx, &mut engine_tx);
         };
 
-        let in_stream = input_device.build_input_stream(&input_config.config(), in_callback, err_fn, None)?;
-        let out_stream = output_device.build_output_stream(&output_config.config(), out_callback, err_fn, None)?;
+        let out_stream = output_device.build_output_stream(
+            &self.output_config
+                .as_ref()
+                .ok_or(anyhow!("no output config"))?
+                .config(),
+            out_callback,
+            err_fn,
+            None
+        )?;
 
-        in_stream.play()?;
+        let in_stream = input_device.build_input_stream(
+            &self.input_config
+                .as_ref()
+                .ok_or(anyhow!("no input config"))?
+                .config(),
+            in_callback,
+            err_fn,
+            None
+        )?;
+
         out_stream.play()?;
+        in_stream.play()?;
 
         self.input_stream = Some(in_stream);
         self.output_stream = Some(out_stream);
@@ -102,33 +125,41 @@ impl AudioIo {
     where
         <R as RbRef>::Rb: RbWrite<f32>,
     {
-        let mut failed = false;
-        data.iter().for_each(|s: &f32| {
-            if let Err(_) = tx.push(*s) {
-                failed = true;
-            }
-        });
-        if failed {
-            eprintln!("failed pushing sample, adjust latency");
+        let count = tx.push_slice(data);
+
+        if count != data.len() {
+            eprintln!("failed pushing sample, samples pushed: {}", count);
         }
+
     }
 
-    fn output_callback<R: RbRef>(data: &mut [f32], rx: &mut Consumer<f32, R>)
+    fn output_callback<R: RbRef>(data: &mut [f32], rx: &mut Consumer<f32, R>, engine_rx: &mut AudioRx, engine_tx: &mut AudioTx)
     where
         <R as RbRef>::Rb: RbRead<f32>,
     {
-        let mut failed = false;
-        data.iter_mut().for_each(|s: &mut f32| {
-            *s = match rx.pop() {
-                Some(s) => s,
-                None => {
-                    failed = true;
-                    0.0
-                }
-            };
-        });
-        if failed {
-            eprintln!("failed pushing sample, adjust latency");
+        let count = rx.pop_slice(data);
+
+        engine_tx.producer.push_slice(data);
+
+        let mut popped = 0;
+        loop {
+            data.iter_mut().for_each(|d: &mut f32|{
+                match engine_rx.consumer.pop()  {
+                    Some(s) => {
+                        *d = s;   
+                        popped += 1;
+                    },
+                    None => {},
+                };
+            });
+
+            if popped == data.len() {
+                break;
+            }
+        }        
+
+        if count != data.len() {
+            eprintln!("failed popping sample, samples popped: {}", count);
         }
     }
 
@@ -136,20 +167,26 @@ impl AudioIo {
         // We drop the streams here because they use RAII
         // instead of a stop method. Because we want to have
         // control over when they stop we do so.
-        let _ = self.input_stream.take();
-        let _ = self.output_stream.take();
+        drop(self.input_stream.take().ok_or(anyhow!("no input stream to stop"))?);
+        drop(self.output_stream.take().ok_or(anyhow!("no output stream to stop"))?);
         Ok(())
     }
 
     pub fn configure(&mut self) -> anyhow::Result<()> {
         let host = AudioIo::configure_host()?;
+
+        println!("Configure Input Device: "); 
         let input_device = AudioIo::configure_device_from_host(&host)?;
+
+        println!("Configure Output Device: "); 
         let output_device = AudioIo::configure_device_from_host(&host)?;
+
         let input_config = AudioIo::get_default_input_config(&input_device)?;
         let output_config = AudioIo::get_default_output_config(&output_device)?;
 
         self.input_device = Some(input_device);
         self.output_device = Some(output_device);
+
         self.input_config = Some(input_config);
         self.output_config = Some(output_config);
 

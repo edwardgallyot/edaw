@@ -1,5 +1,6 @@
 mod audio_io;
 
+use audio_engine::AudioEngine;
 use hot_lib_reloader::*;
 
 #[hot_module(
@@ -17,7 +18,7 @@ mod hot_lib {
 }
 
 fn main() {
-    let mut state = hot_lib::State { counter: 0 };
+    let mut state = hot_lib::State::new();
     let lib_observer = hot_lib::subscribe();
     let mut audio_io = audio_io::AudioIo::new();
 
@@ -27,6 +28,9 @@ fn main() {
     }
 
     loop {
+
+        let engine = AudioEngine::new(2048);
+
         hot_lib::load(&mut state);
 
         if let Err(e) = audio_io.start() {

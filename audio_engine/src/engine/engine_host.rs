@@ -79,6 +79,8 @@ impl AudioEngineHost {
 
         let mut engine = AudioEngine::new(self.num_samples_per_channel, self.num_channels);
 
+        engine.prepare()?;
+
         let mut rx = self
             .audio_in
             .take_rx()
@@ -108,12 +110,17 @@ impl AudioEngineHost {
         Ok(())
     }
 
-    pub fn stop(&mut self) {
-        println!("Stopping  ");
+}
+
+impl Drop for AudioEngineHost {
+    fn drop(&mut self) {
         self.run.store(false, Relaxed);
         if let Some(h) = self.handle.take() {
-            let _ = h.join();
+            if let Err(e) = h.join() {
+                eprintln!("error joining thread: {:?}", e);
+            }
         }
-        println!("Stopped");
+        
     }
+
 }

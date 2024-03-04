@@ -1,17 +1,33 @@
+mod state;
+mod connection;
 mod engine_host;
+
 pub use engine_host::*;
+use state::State;
+use connection::Connection;
 
 pub struct AudioEngine {
     num_samples_per_channel: usize,
     num_channels: usize,
+    state: State,
+    connection: Connection,
 }
 
 impl AudioEngine {
     pub fn new(num_samples_per_channel: usize, num_channels: usize) -> Self {
+        let state = State::new();
+        let connection = Connection::new();
         Self {
             num_samples_per_channel,
             num_channels,
+            state,
+            connection,
         }
+    }
+
+    fn prepare(&mut self) -> anyhow::Result<()> {
+        self.connection.start_connection_thread();
+        Ok(())
     }
 
     fn make_dual_mono(&mut self, data: &mut [f32]) {
@@ -41,9 +57,8 @@ impl AudioEngine {
         });
         self.make_dual_mono(data);
 
-        // let hard_clip_threshold = 1.0;
+        let hard_clip_threshold = 1.0;
         let hard_clip_threshold = 0.01;
         self.apply_hard_clip(data, hard_clip_threshold);
     }
-
 }

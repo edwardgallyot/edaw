@@ -27,9 +27,6 @@ pub fn load(state: &mut State)  {
 }
 
 #[no_mangle]
-pub fn save(mut state: State) -> State {
-    if let Some(s) = state.engine_host.as_mut().take() {
-        s.stop();
-    }
+pub fn save(state: State) -> State {
     state
 }

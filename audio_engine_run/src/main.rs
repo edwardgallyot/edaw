@@ -1,13 +1,11 @@
 mod audio_io;
 
-use audio_engine::AudioEngine;
 use hot_lib_reloader::*;
 
 #[hot_module(
     dylib = "audio_engine",
     lib_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/debug")
 )]
-
 mod hot_lib {
     hot_functions_from_file!("audio_engine/src/reload.rs");
 
@@ -18,7 +16,6 @@ mod hot_lib {
 }
 
 fn main() {
-    let mut state = hot_lib::State::new();
     let lib_observer = hot_lib::subscribe();
     let mut audio_io = audio_io::AudioIo::new();
 
@@ -27,15 +24,32 @@ fn main() {
         return;
     }
 
-    loop {
 
-        let engine = AudioEngine::new(2048);
+    loop {
+        if audio_io.get_num_samples_per_channel() == 0 {
+            eprintln!("no samples");
+            return;
+        }
+
+        if audio_io.get_num_channels() == 0 {
+            eprintln!("no channels");
+            return;
+        }
+
+        let mut state: hot_lib::State = hot_lib::build(
+            audio_io.get_num_samples_per_channel(),
+            audio_io.get_num_channels()
+        );
 
         hot_lib::load(&mut state);
 
-        if let Err(e) = audio_io.start() {
-            eprintln!("Error starting the audio engine: {}", e);
-            return;
+        if let Some(s) = &mut state.engine_host {
+            let mut engine_in = &mut s.audio_in;
+            let mut engine_out = &mut s.audio_out;
+            if let Err(e) = audio_io.start(&mut engine_in, &mut engine_out) {
+                eprintln!("Error starting the audio engine: {}", e);
+                return;
+            }
         }
 
         lib_observer.wait_for_about_to_reload();
@@ -44,7 +58,7 @@ fn main() {
             eprintln!("Error stopping the audio engine: {}", e);
         }
 
-        state = hot_lib::save(state);
+        hot_lib::save(state);
 
         lib_observer.wait_for_reload();
     }

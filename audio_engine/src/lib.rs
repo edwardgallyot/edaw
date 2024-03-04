@@ -1,4 +1,4 @@
-mod reload;
+pub mod reload;
 mod engine;
 pub mod audio_channel;
 

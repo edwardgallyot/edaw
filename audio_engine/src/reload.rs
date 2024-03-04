@@ -1,28 +1,35 @@
-use crate::engine::AudioEngine;
+use crate::engine::AudioEngineHost;
 
 #[derive(Default)]
 pub struct State {
-    pub engine: Option<AudioEngine>,
+    pub engine_host: Option<AudioEngineHost>,
 }
 
 impl State {
     pub fn new() -> State {
         State::default()
     }
+}
 
-    pub fn register_audio_engine(&mut self, engine: AudioEngine) {
-        self.engine = Some(engine);
+#[no_mangle]
+pub fn build(num_samples_per_channel: usize, num_channels: usize) -> State {
+    let mut state = State::new();
+    let engine = AudioEngineHost::new(num_samples_per_channel, num_channels);
+    state.engine_host = engine.ok();
+    state
+}
+
+#[no_mangle]
+pub fn load(state: &mut State)  {
+    if let Some(s) = state.engine_host.as_mut() {
+        let _ = s.start();
     }
 }
 
 #[no_mangle]
-pub fn load(_state: &mut State) {
-    println!("Reload the server");
-    
-}
-
-#[no_mangle]
-pub fn save(state: State) -> State {
-    println!("Cool: Save the server");
+pub fn save(mut state: State) -> State {
+    if let Some(s) = state.engine_host.as_mut().take() {
+        s.stop();
+    }
     state
 }

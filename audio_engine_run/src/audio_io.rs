@@ -1,7 +1,7 @@
-use std::io::stdin;
+use std::{io::stdin, sync::{Arc, Mutex}, thread};
 
 use anyhow::anyhow;
-use audio_engine::audio_channel::{AudioRx, AudioTx};
+use audio_engine::{audio_channel::{AudioRx, AudioTx, AudioChannel}, AudioEngineHost, State};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, SupportedStreamConfig, SupportedBufferSize::{Unknown, Range},
@@ -17,6 +17,8 @@ fn err_fn(e: cpal::StreamError) {
     eprintln!("error in stream: {}", e);
 }
 
+const SLEEP_TIME_NS: u64 = 5000;
+
 #[derive(Default)]
 pub struct AudioIo {
     input_device: Option<cpal::Device>,
@@ -25,6 +27,8 @@ pub struct AudioIo {
     output_config: Option<cpal::SupportedStreamConfig>,
     input_stream: Option<cpal::Stream>,
     output_stream: Option<cpal::Stream>,
+    num_channels: usize,
+    num_samples_per_channel: usize,
 }
 
 impl AudioIo {
@@ -32,35 +36,21 @@ impl AudioIo {
         AudioIo::default()
     }
 
-    pub fn get_total_buffer_size(&self) -> anyhow::Result<u32> {
-        let output_config = self
-            .output_config
-            .as_ref()
-            .ok_or(anyhow!("no output config"))?;
-
-        let input_config = self
-            .input_config
-            .as_ref()
-            .ok_or(anyhow!("no input config"))?;
-
-        if input_config.buffer_size() != output_config.buffer_size() {
-            return Err(anyhow!("in: {:?} and out: {:?} buffer sizes don't match",
-                input_config.buffer_size(),
-                output_config.buffer_size()
-            ));
-        }
-
-        return match input_config.buffer_size() {
-            Range { min: _, max } => Ok(max * input_config.channels() as u32),
-            Unknown => Err(anyhow!("unknown buffer size")),
-        };
+    pub fn get_total_buffer_size(&self) -> usize {
+        self.num_channels * self.num_samples_per_channel
     }
 
-    pub fn get_num_channels(&self) {
-
+    pub fn get_num_channels(&self) -> usize {
+        self.num_channels
     }
 
-    pub fn start(&mut self, engine_rx: AudioRx, engine_tx: AudioTx) -> anyhow::Result<()> {
+    pub fn get_num_samples_per_channel(&self) -> usize {
+        self.num_samples_per_channel
+    }
+
+    pub fn start (&mut self, engine_in: &mut AudioChannel, engine_out: &mut AudioChannel) -> anyhow::Result<()> {
+        let latency_samples = self.get_total_buffer_size();
+        let buffer_size = self.get_total_buffer_size();
 
         let output_device = self
             .output_device
@@ -72,24 +62,37 @@ impl AudioIo {
             .as_mut()
             .ok_or(anyhow!("no input device"))?;
 
-        let latency_samples = self.get_total_buffer_size()?;
 
-        let ring = HeapRb::<f32>::new((latency_samples * 4) as usize);
-        let (mut tx, mut rx) = ring.split();
+        let ring = HeapRb::<f32>::new((latency_samples * 2) as usize);
+        let (mut output_tx, mut input_rx) = ring.split();
 
         for _ in 0..latency_samples {
-            if let Err(e) = tx.push(0.0) {
+            if let Err(e) = output_tx.push(0.0) {
                 return Err(anyhow!("couldn't init ring buffer: {}", e));
             }
         }
 
         let in_callback = move |data: &[f32], _: &cpal::InputCallbackInfo| {
-            AudioIo::input_callback(data, &mut tx);
+            AudioIo::input_callback(data, &mut output_tx);
         };
+
+        let mut tx_engine = engine_in
+            .take_tx()
+            .ok_or(anyhow!("no tx on engine"))?;
+
+        let mut rx_engine = engine_out
+            .take_rx()
+            .ok_or(anyhow!("no rx on engine"))?;
 
 
         let out_callback = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-            AudioIo::output_callback(data, &mut rx, &mut engine_rx, &mut engine_tx);
+            AudioIo::output_callback(
+                data,
+                &mut input_rx,
+                &mut tx_engine,
+                &mut rx_engine,
+                buffer_size,
+            );
         };
 
         let out_stream = output_device.build_output_stream(
@@ -121,11 +124,11 @@ impl AudioIo {
         Ok(())
     }
 
-    fn input_callback<R: RbRef>(data: &[f32], tx: &mut Producer<f32, R>)
+    fn input_callback<R: RbRef>(data: &[f32], output_tx: &mut Producer<f32, R>)
     where
         <R as RbRef>::Rb: RbWrite<f32>,
     {
-        let count = tx.push_slice(data);
+        let count = output_tx.push_slice(data);
 
         if count != data.len() {
             eprintln!("failed pushing sample, samples pushed: {}", count);
@@ -133,33 +136,37 @@ impl AudioIo {
 
     }
 
-    fn output_callback<R: RbRef>(data: &mut [f32], rx: &mut Consumer<f32, R>, engine_rx: &mut AudioRx, engine_tx: &mut AudioTx)
+    fn output_callback<R: RbRef>(
+        data: &mut [f32],
+        input_rx: &mut Consumer<f32, R>,
+        engine_tx: &mut AudioTx,
+        engine_rx: &mut AudioRx,
+        buffer_size: usize,
+    ) 
     where
         <R as RbRef>::Rb: RbRead<f32>,
     {
-        let count = rx.pop_slice(data);
+        let _count = input_rx.pop_slice(data);
 
         engine_tx.producer.push_slice(data);
+        
+        let mut num_popped = 0;
 
-        let mut popped = 0;
-        loop {
-            data.iter_mut().for_each(|d: &mut f32|{
-                match engine_rx.consumer.pop()  {
-                    Some(s) => {
-                        *d = s;   
-                        popped += 1;
-                    },
-                    None => {},
-                };
-            });
-
-            if popped == data.len() {
-                break;
+        let time = std::time::Instant::now();
+        while num_popped < buffer_size {
+            if let Some(s) = engine_rx.consumer.pop() {
+                data[num_popped] = s;
+                num_popped += 1;
+            } else {
+                if time.elapsed().as_millis() > 40 {
+                    break;
+                }
+                // We yield and do a little sleep to avoid hogging
+                // the os thread when waiting for samples from the host.
+                thread::yield_now();
+                let dur = std::time::Duration::from_nanos(SLEEP_TIME_NS);
+                std::thread::sleep(dur);
             }
-        }        
-
-        if count != data.len() {
-            eprintln!("failed popping sample, samples popped: {}", count);
         }
     }
 
@@ -184,6 +191,38 @@ impl AudioIo {
         let input_config = AudioIo::get_default_input_config(&input_device)?;
         let output_config = AudioIo::get_default_output_config(&output_device)?;
 
+
+        if input_config.channels() != output_config.channels() {
+            return Err(anyhow!("for now, io channels must match"));
+        }
+
+        let min_cmp: usize;
+        let max_cmp: usize;
+
+        if let Range {min, max} = output_config.buffer_size() {
+            min_cmp = *min as usize; 
+            max_cmp = *max as usize; 
+        } else {
+            return Err(anyhow!("no supported output buffer size"));
+        }
+
+        if let Range { min, max } = input_config.buffer_size() {
+            if min != max {
+                return Err(anyhow!("buffer min and max don't match"));
+            }
+            if min_cmp != *min as usize {
+                return Err(anyhow!("min buffer config doesn't match for i/o"));
+            }
+            if max_cmp != *max as usize {
+                return Err(anyhow!("max buffer config doesn't match for i/o"));
+            }
+            self.num_samples_per_channel = *max as usize;
+        } else {
+            return Err(anyhow!("no supported input buffer size"));
+        }
+
+        self.num_channels = output_config.channels() as usize;
+
         self.input_device = Some(input_device);
         self.output_device = Some(output_device);
 
@@ -192,6 +231,7 @@ impl AudioIo {
 
         Ok(())
     }
+
 
     fn get_user_choice() -> anyhow::Result<usize> {
         let mut choice = String::new();

@@ -1,6 +1,6 @@
 use std::{sync::Arc, mem::MaybeUninit};
 
-use ringbuf::{Producer, SharedRb, HeapRb};
+use ringbuf::{Producer, SharedRb};
 
 type HeapRbTx = Producer<f32, Arc<SharedRb<f32, Vec<MaybeUninit<f32>>>>>;
 

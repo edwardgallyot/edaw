@@ -9,4 +9,5 @@ crate-type = ["rlib", "dylib"]
 [dependencies]
 ringbuf = "0.3"
 anyhow = "1.0"
-mio = "0.8.11"
+mio = { version = "0.8.11", features = ["os-poll", "net"] }
+fxhash = "0.2"

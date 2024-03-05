@@ -1,4 +1,9 @@
+mod connection_manager;
+
 use std::{thread::{JoinHandle, self}, sync::{atomic::{AtomicBool, Ordering::Relaxed}, Arc}, time::Duration};
+
+use anyhow::Result;
+use connection_manager::ConnectionManager;
 
 #[derive(Default)]
 pub struct Connection {
@@ -11,16 +16,26 @@ impl Connection {
         Connection::default()
     }
 
-    pub fn start_connection_thread(&mut self) {
+    pub fn start_connection_thread(&mut self) -> Result<()> {
+        let mut manager = ConnectionManager::new()?;
+
         self.run.store(true, Relaxed);
         let run_clone = self.run.clone();
+
         let handle = thread::spawn(move || {
             while run_clone.load(Relaxed) {
-                // TODO: manage the connections here.
-                thread::sleep(Duration::from_secs_f64(1.0));
+                Connection::accept_connection(&mut manager);
             }
         });
+
         self.connection = Some(handle);
+        Ok(())
+    }
+
+    fn accept_connection(manager: &mut ConnectionManager) {
+        if let Err(e) = manager.accept_connections() {
+            eprintln!("error accepting connections to audio engine {}", e);
+        }
     }
 }
 

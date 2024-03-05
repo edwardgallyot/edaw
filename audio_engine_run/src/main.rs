@@ -9,10 +9,10 @@ use hot_lib_reloader::*;
 mod hot_lib {
     hot_functions_from_file!("audio_engine/src/reload.rs");
 
+    use audio_engine::State;
+
     #[lib_change_subscription]
     pub fn subscribe() -> hot_lib_reloader::LibReloadObserver {}
-
-    pub use audio_engine::State;
 }
 
 fn main() {
@@ -36,7 +36,7 @@ fn main() {
             return;
         }
 
-        let mut state: hot_lib::State = hot_lib::build(
+        let mut state= hot_lib::build(
             audio_io.get_num_samples_per_channel(),
             audio_io.get_num_channels()
         );

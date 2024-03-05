@@ -26,7 +26,7 @@ impl AudioEngine {
     }
 
     fn prepare(&mut self) -> anyhow::Result<()> {
-        self.connection.start_connection_thread();
+        self.connection.start_connection_thread()?;
         Ok(())
     }
 

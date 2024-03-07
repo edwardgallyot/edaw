@@ -4,5 +4,8 @@ members = [
     "terminal",
     "audio_engine",
     "terminal_run",
-    "audio_engine_run"
+    "audio_engine_run",
+    "edaw_messaging"
 ]
+
+resolver = "2"

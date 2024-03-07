@@ -1,6 +1,7 @@
 use std::{time::Duration, io::{self, Read}, str::from_utf8, ops::ControlFlow};
 
 use anyhow::{Result, anyhow};
+use edaw_messaging::{MessageTx, Message, Ping};
 use fxhash::FxHashMap;
 use mio::{Token, Poll, Events, net::TcpListener, net::TcpStream, Interest, event::Event, Registry};
 
@@ -18,12 +19,12 @@ pub struct ConnectionManager {
     server: TcpListener,
     map: FxHashMap<Token, TcpStream>,
     next_available_client: Token,
-
+    tx: MessageTx,
 }
 
 
 impl ConnectionManager {
-    pub fn new() -> Result<ConnectionManager> {
+    pub fn new(tx: MessageTx) -> Result<ConnectionManager> {
         let poll = Poll::new()?;
         let events = Events::with_capacity(128);
 
@@ -44,6 +45,7 @@ impl ConnectionManager {
             server,
             map,
             next_available_client,
+            tx,
         };
 
         Ok(connection_manager)
@@ -65,6 +67,7 @@ impl ConnectionManager {
             server,
             map,
             next_available_client,
+            tx,
         } = self;
 
         for event in events.iter(){
@@ -74,10 +77,9 @@ impl ConnectionManager {
                 server,
                 map,
                 next_available_client,
+                tx,
             )?;
         }
-
-        // println!("polling finished");
 
         Ok(())
     }
@@ -88,6 +90,7 @@ impl ConnectionManager {
         server: &mut TcpListener,
         map: &mut FxHashMap<Token, TcpStream>,
         next_available_client: &mut Token, 
+        tx: &mut MessageTx,
     ) -> Result<()> {
         match event.token() {
             SERVER => {
@@ -104,6 +107,7 @@ impl ConnectionManager {
                     poll,
                     event,
                     map,
+                    tx,
                 )?;
             }
         }
@@ -152,12 +156,14 @@ impl ConnectionManager {
         poll: &mut Poll,
         event: &Event,
         map: &mut FxHashMap<Token, TcpStream>,
+        tx: &mut MessageTx,
     ) -> Result<()> {
         let done = if let Some(connection) = map.get_mut(&token) {
             ConnectionManager::handle_client_connection_event(
                 poll.registry(),
                 connection,
                 event,
+                tx,
             )?
         } else {
             false
@@ -174,7 +180,11 @@ impl ConnectionManager {
         _registry: &Registry,
         connection: &mut TcpStream,
         event: &Event,
+        tx: &mut MessageTx,
     ) -> Result<bool> {
+        // TODO: remove this...
+        let test_message = Message::Ping(Ping::new(10));
+        tx.send(test_message)?;
 
         if event.is_readable() {
             return ConnectionManager::handle_client_readable_connection_event(
@@ -202,6 +212,7 @@ impl ConnectionManager {
             }
         }
 
+
         if let RxStatus::Recieved(s) = status {
             if s == 0 {
                 connection_closed = true;
@@ -209,6 +220,7 @@ impl ConnectionManager {
                 bytes_read = s;
             }
         }
+
 
         if bytes_read != 0 {
             let rx_data = &rx_buffer[..bytes_read as usize];

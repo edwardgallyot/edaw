@@ -22,13 +22,16 @@ pub fn build(num_samples_per_channel: usize, num_channels: usize) -> State {
 #[no_mangle]
 pub fn load(state: &mut State)  {
     if let Some(s) = state.engine_host.as_mut() {
-        let _ = s.start();
+        match s.start() {
+            Err(e) => eprintln!("error starting engine host: {}", e),
+            Ok(_) => {},
+        }
     }
 }
 
 #[no_mangle]
 pub fn save(mut state: State) -> State {
-    println!("running ");
+    println!("running now");
     if let Some(s) = state.engine_host.take() {
         drop(s);
     }

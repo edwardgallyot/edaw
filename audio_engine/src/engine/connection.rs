@@ -1,9 +1,10 @@
 mod connection_manager;
 
-use std::{thread::{JoinHandle, self}, sync::{atomic::{AtomicBool, Ordering::Relaxed}, Arc}, time::Duration};
+use std::{thread::{JoinHandle, self}, sync::{atomic::{AtomicBool, Ordering::Relaxed}, Arc}};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use connection_manager::ConnectionManager;
+use edaw_messaging::MessageQueue;
 
 #[derive(Default)]
 pub struct Connection {
@@ -16,8 +17,12 @@ impl Connection {
         Connection::default()
     }
 
-    pub fn start_connection_thread(&mut self) -> Result<()> {
-        let mut manager = ConnectionManager::new()?;
+    pub fn start_connection_thread(&mut self, message_queue: &mut MessageQueue) -> Result<()> {
+        let tx = message_queue
+            .take_tx()
+            .ok_or(anyhow!("no tx"))?;
+
+        let mut manager = ConnectionManager::new(tx)?;
 
         self.run.store(true, Relaxed);
         let run_clone = self.run.clone();

@@ -12,11 +12,10 @@ mod hot_lib {
 }
 
 fn main() {
-    let mut state = hot_lib::build();
-
     let lib_observer = hot_lib::subscribe();
 
     loop {
+        let mut state = hot_lib::build();
         hot_lib::load(&mut state);
         lib_observer.wait_for_about_to_reload();
         state = hot_lib::save(state);

@@ -1,10 +1,10 @@
-use std::{io::stdin, sync::{Arc, Mutex}, thread};
+use std::io::stdin;
 
 use anyhow::anyhow;
-use audio_engine::{audio_channel::{AudioRx, AudioTx, AudioChannel}, AudioEngineHost, State};
+use audio_engine::audio_channel::{AudioRx, AudioTx, AudioChannel};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, SupportedStreamConfig, SupportedBufferSize::{Unknown, Range},
+    Device, SupportedStreamConfig, SupportedBufferSize::Range,
 };
 
 use ringbuf::{
@@ -16,8 +16,6 @@ use ringbuf::{
 fn err_fn(e: cpal::StreamError) {
     eprintln!("error in stream: {}", e);
 }
-
-const SLEEP_TIME_NS: u64 = 5000;
 
 #[derive(Default)]
 pub struct AudioIo {
@@ -91,7 +89,6 @@ impl AudioIo {
                 &mut input_rx,
                 &mut tx_engine,
                 &mut rx_engine,
-                buffer_size,
             );
         };
 
@@ -141,33 +138,15 @@ impl AudioIo {
         input_rx: &mut Consumer<f32, R>,
         engine_tx: &mut AudioTx,
         engine_rx: &mut AudioRx,
-        buffer_size: usize,
     ) 
     where
         <R as RbRef>::Rb: RbRead<f32>,
     {
         let _count = input_rx.pop_slice(data);
 
-        engine_tx.producer.push_slice(data);
+        engine_tx.push_slice(data);
         
-        let mut num_popped = 0;
-
-        let time = std::time::Instant::now();
-        while num_popped < buffer_size {
-            if let Some(s) = engine_rx.consumer.pop() {
-                data[num_popped] = s;
-                num_popped += 1;
-            } else {
-                if time.elapsed().as_millis() > 40 {
-                    break;
-                }
-                // We yield and do a little sleep to avoid hogging
-                // the os thread when waiting for samples from the host.
-                thread::yield_now();
-                let dur = std::time::Duration::from_nanos(SLEEP_TIME_NS);
-                std::thread::sleep(dur);
-            }
-        }
+        engine_rx.collect_samples(data);
     }
 
     pub fn stop(&mut self) -> anyhow::Result<()> {

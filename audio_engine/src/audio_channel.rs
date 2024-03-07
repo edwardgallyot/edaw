@@ -21,8 +21,8 @@ impl AudioChannel {
         let ring = HeapRb::<f32>::new(buffer_size);
         let (producer, consumer) = ring.split();
 
-        let audio_rx = Some(AudioRx { consumer });
-        let audio_tx = Some(AudioTx { producer });
+        let audio_rx = Some(AudioRx::new(consumer));
+        let audio_tx = Some(AudioTx::new(producer));
 
         Self {
             audio_rx,

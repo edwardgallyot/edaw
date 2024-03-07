@@ -1,48 +1,55 @@
 mod app;
 
 use std::{
-    io::{stdout, Stdout},
+    io::stdout,
     ops::ControlFlow,
     sync::{
         atomic::{self, AtomicBool},
         Arc,
     },
-    thread::{spawn, JoinHandle},
+    thread::{spawn, JoinHandle, self}, time, panic,
 };
 
+use anyhow::Result;
 use crossterm::{
-    event::{self, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
-use ratatui::{backend::CrosstermBackend, style::Stylize, widgets::Paragraph};
+
+use ratatui::backend::CrosstermBackend;
+
+const SLEEP_TIME_MS: u64 = 10;
+
+fn setup_terminal() -> Result<()> {
+    stdout().execute(EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    Ok(())
+}
+
+fn reset_terminal() -> Result<()> {
+    disable_raw_mode()?;
+    stdout().execute(LeaveAlternateScreen)?;
+    Ok(())
+}
+
+fn set_up_panic_hooks() {
+    let original_hook = panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic| {
+        reset_terminal().unwrap();
+        original_hook(panic);
+    }));
+}
 
 #[derive(Default)]
 pub struct Tui {
     pub run: Arc<AtomicBool>,
     pub handle: Option<JoinHandle<Option<app::App>>>,
-    pub app: Option<app::App>,
 }
 
 impl Tui {
     pub fn new() -> Tui {
+        set_up_panic_hooks();
         Tui::default()
-    }
-
-    pub fn stop(&mut self) {
-        self.run.store(false, std::sync::atomic::Ordering::Relaxed);
-
-        // Join the handle if it's still running.
-        if let Some(handle) = self.handle.take() {
-            let inner_state = match handle.join() {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("Error joining thread: {:?}", e);
-                    None
-                }
-            };
-            self.app = inner_state;
-        }
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
@@ -50,20 +57,19 @@ impl Tui {
         let run_clone = self.run.clone();
         run_clone.store(true, atomic::Ordering::Relaxed);
 
-        // Take the state to be passed into the run thread
-        let mut state = match self.app.take() {
-            Some(s) => s,
-            None => app::App::new(),
-        };
+        // We create the app local to this function because we can
+        // move it into the run thread.
+        let mut app = app::App::new();
 
         // Create the thread that runs our main loop
         let handle = spawn(move || {
-            match Tui::run_main_loop(run_clone, &mut state) {
+            set_up_panic_hooks();
+            match Tui::run_main_loop(run_clone, &mut app) {
                 Err(e) => eprintln!("Error running main loop: {}", e),
                 Ok(()) => {}
             }
             // Return the modified state out of the main thread
-            Some(state)
+            Some(app)
         });
 
         // Store some handle for it to be joined later
@@ -73,58 +79,34 @@ impl Tui {
     }
 
     fn run_main_loop(run: Arc<AtomicBool>, app: &mut app::App) -> anyhow::Result<()> {
-        stdout().execute(EnterAlternateScreen)?;
-        enable_raw_mode()?;
+        setup_terminal()?;
         let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout()))?;
         terminal.clear()?;
 
         while run.load(atomic::Ordering::Relaxed) {
-            Tui::handle_drawing(&mut terminal, app)?;
+            thread::sleep(time::Duration::from_millis(SLEEP_TIME_MS));
+            app.handle_drawing(&mut terminal)?;
 
-            match Tui::handle_input(app)? {
+            match app.handle_input()? {
                 ControlFlow::Break(_) => break,
                 ControlFlow::Continue(_) => continue,
             }
         }
 
-        disable_raw_mode()?;
-        stdout().execute(LeaveAlternateScreen)?;
+        reset_terminal()?;
         Ok(())
     }
+}
 
-    fn handle_drawing(
-        terminal: &mut ratatui::Terminal<CrosstermBackend<Stdout>>,
-        app: &mut app::App,
-    ) -> anyhow::Result<()> {
-        terminal.draw(|frame| {
-            let area = frame.size();
-            frame.render_widget(
-                Paragraph::new("Sami Terminal").black().on_light_magenta(),
-                area,
-            );
-        })?;
-        Ok(())
-    }
+impl Drop for Tui {
+    fn drop(&mut self) {
+        self.run.store(false, std::sync::atomic::Ordering::Relaxed);
 
-    fn handle_input(app: &mut app::App) -> anyhow::Result<ControlFlow<()>> {
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
-                return Tui::match_key_codes(key.code);
+        // Join the handle if it's still running.
+        if let Some(handle) = self.handle.take() {
+            if let Err(e) = handle.join() { 
+                eprintln!("error joining thread: {:?}", e);
             }
         }
-        Ok(ControlFlow::Continue(()))
-    }
-
-    fn match_key_codes(code: KeyCode) -> anyhow::Result<ControlFlow<()>> {
-        match code {
-            KeyCode::Char('q') => {
-                return Ok(ControlFlow::Break(()));
-            }
-            KeyCode::Char('Q') => {
-                return Ok(ControlFlow::Break(()));
-            }
-            _ => {}
-        }
-        Ok(ControlFlow::Continue(()))
     }
 }

@@ -1,0 +1,10 @@
+[package]
+name = "edaw_messaging"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.0"
+anyhow = "1.0"
+crossbeam = "0.8"

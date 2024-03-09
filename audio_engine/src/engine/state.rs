@@ -6,7 +6,7 @@ use atomic_state::AtomicState;
 
 #[derive(Default)]
 pub struct State {
-    state: Arc<AtomicState> 
+    state: Arc<AtomicState>,
 }
 
 impl State {

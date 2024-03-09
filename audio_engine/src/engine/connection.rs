@@ -1,8 +1,14 @@
 mod connection_manager;
 
-use std::{thread::{JoinHandle, self}, sync::{atomic::{AtomicBool, Ordering::Relaxed}, Arc}};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc,
+    },
+    thread::{self, JoinHandle},
+};
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use connection_manager::ConnectionManager;
 use edaw_messaging::MessageQueue;
 
@@ -18,9 +24,7 @@ impl Connection {
     }
 
     pub fn start_connection_thread(&mut self, message_queue: &mut MessageQueue) -> Result<()> {
-        let tx = message_queue
-            .take_tx()
-            .ok_or(anyhow!("no tx"))?;
+        let tx = message_queue.take_tx().ok_or(anyhow!("no tx"))?;
 
         let mut manager = ConnectionManager::new(tx)?;
 
@@ -54,4 +58,3 @@ impl Drop for Connection {
         }
     }
 }
-

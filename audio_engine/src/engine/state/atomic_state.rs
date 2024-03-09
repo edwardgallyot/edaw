@@ -1,5 +1,2 @@
-
 #[derive(Default)]
-pub struct AtomicState {
-     
-}
+pub struct AtomicState {}

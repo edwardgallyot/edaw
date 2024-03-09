@@ -6,11 +6,10 @@ use ringbuf::HeapRb;
 
 pub use audio_rx::AudioRx;
 
-
 pub struct AudioChannel {
-    // Because these channels are made 
+    // Because these channels are made
     // to be used across threads they are options
-    // in the sense that another can thread can 
+    // in the sense that another can thread can
     // take the option and leave None in it's place.
     audio_rx: Option<AudioRx>,
     audio_tx: Option<AudioTx>,
@@ -24,10 +23,7 @@ impl AudioChannel {
         let audio_rx = Some(AudioRx::new(consumer));
         let audio_tx = Some(AudioTx::new(producer));
 
-        Self {
-            audio_rx,
-            audio_tx,
-        }
+        Self { audio_rx, audio_tx }
     }
 
     pub fn take_tx(&mut self) -> Option<AudioTx> {
@@ -38,4 +34,3 @@ impl AudioChannel {
         self.audio_rx.take()
     }
 }
-

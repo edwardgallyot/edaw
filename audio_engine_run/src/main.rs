@@ -24,7 +24,6 @@ fn main() {
         return;
     }
 
-
     loop {
         if audio_io.get_num_samples_per_channel() == 0 {
             eprintln!("no samples");
@@ -36,9 +35,9 @@ fn main() {
             return;
         }
 
-        let mut state= hot_lib::build(
+        let mut state = hot_lib::build(
             audio_io.get_num_samples_per_channel(),
-            audio_io.get_num_channels()
+            audio_io.get_num_channels(),
         );
 
         hot_lib::load(&mut state);

@@ -3,11 +3,13 @@ mod app;
 use std::{
     io::stdout,
     ops::ControlFlow,
+    panic,
     sync::{
         atomic::{self, AtomicBool},
         Arc,
     },
-    thread::{spawn, JoinHandle, self}, time, panic,
+    thread::{self, spawn, JoinHandle},
+    time,
 };
 
 use anyhow::Result;
@@ -104,7 +106,7 @@ impl Drop for Tui {
 
         // Join the handle if it's still running.
         if let Some(handle) = self.handle.take() {
-            if let Err(e) = handle.join() { 
+            if let Err(e) = handle.join() {
                 eprintln!("error joining thread: {:?}", e);
             }
         }

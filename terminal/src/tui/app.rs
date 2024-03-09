@@ -3,19 +3,18 @@
 * pages: defines the behaviour of screen once you've navigated there
 * ui: the actual drawing logic
 */
-mod screens;
 mod pages;
+mod screens;
 mod ui;
 
 use std::{io::Stdout, ops::ControlFlow};
- 
+
 use anyhow::Result;
 use crossterm::event::{self, KeyCode};
+use pages::ConnectionPage;
 use ratatui::backend::CrosstermBackend;
 use screens::Screen;
-use pages::ConnectionPage;
 use ui::ui;
-
 
 pub struct App {
     current_screen: Screen,
@@ -43,7 +42,7 @@ impl App {
         terminal.draw(|frame| {
             ui(frame, self);
         })?;
-       Ok(())
+        Ok(())
     }
 
     pub fn handle_input(&mut self) -> Result<ControlFlow<()>> {
@@ -61,10 +60,12 @@ impl App {
 
         // Do something based on the current selection
         match self.current_screen {
-            Screen::Main => {},
-            Screen::Connection(None) => {},
-            Screen::Connection(Some(ref mut c)) => self.connection_page.handle_current_screen(&code, c),
-            Screen::Samples => {},
+            Screen::Main => {}
+            Screen::Connection(None) => {}
+            Screen::Connection(Some(ref mut c)) => {
+                self.connection_page.handle_current_screen(&code, c)
+            }
+            Screen::Samples => {}
         }
         return Ok(ControlFlow::Continue(()));
     }

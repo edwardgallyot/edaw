@@ -1,8 +1,8 @@
 mod connection;
 
+use crate::tui::app::screens::ConnectionScreen;
 use connection::Connection;
 use crossterm::event::KeyCode;
-use crate::tui::app::screens::ConnectionScreen;
 
 pub struct ConnectionPage {
     connection: Connection,
@@ -27,14 +27,14 @@ impl ConnectionPage {
         match screen {
             ConnectionScreen::Editing => {
                 self.handle_editing_screen(code);
-            },
+            }
             ConnectionScreen::Connecting => {
                 self.handle_connecting_screen(screen);
-            },
+            }
             ConnectionScreen::Disconnecting => {
                 self.handle_disconnecting_screen(screen);
             }
-            _ => {},
+            _ => {}
         };
     }
 
@@ -74,4 +74,3 @@ impl ConnectionPage {
         *screen = ConnectionScreen::Disconnect;
     }
 }
-

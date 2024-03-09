@@ -1,18 +1,16 @@
+use anyhow::{anyhow, Result};
 use crossbeam::channel::Sender;
-use anyhow::{Result, anyhow};
 
 use crate::Message;
 
 pub struct MessageTx {
-    producer: Sender<Message>
+    producer: Sender<Message>,
 }
 
 impl MessageTx {
     pub fn new(tx: Sender<Message>) -> MessageTx {
         let producer = tx;
-        MessageTx {
-            producer,
-        } 
+        MessageTx { producer }
     }
 
     pub fn send(&mut self, message: Message) -> Result<()> {

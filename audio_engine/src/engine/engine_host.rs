@@ -1,4 +1,10 @@
-use std::{thread::{self, JoinHandle}, sync::{Arc, atomic::{AtomicBool, Ordering::Relaxed}}};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc,
+    },
+    thread::{self, JoinHandle},
+};
 
 use anyhow::anyhow;
 
@@ -12,14 +18,15 @@ pub struct AudioEngineHost {
     num_samples_per_channel: usize,
     num_channels: usize,
 
-
     run: Arc<AtomicBool>,
     handle: Option<JoinHandle<()>>,
 }
 
-
 impl AudioEngineHost {
-    pub fn new(num_samples_per_channel: usize, num_channels: usize) -> anyhow::Result<AudioEngineHost> {
+    pub fn new(
+        num_samples_per_channel: usize,
+        num_channels: usize,
+    ) -> anyhow::Result<AudioEngineHost> {
         let buffer_size = num_samples_per_channel * num_channels;
 
         if buffer_size == 0 {
@@ -43,7 +50,7 @@ impl AudioEngineHost {
         Ok(host)
     }
 
-    pub fn start(&mut self) -> anyhow::Result<()>{
+    pub fn start(&mut self) -> anyhow::Result<()> {
         let run_clone = self.run.clone();
         run_clone.store(true, Relaxed);
 
@@ -51,15 +58,9 @@ impl AudioEngineHost {
 
         engine.prepare()?;
 
-        let mut rx = self
-            .audio_in
-            .take_rx()
-            .ok_or(anyhow!("no input rx"))?;
+        let mut rx = self.audio_in.take_rx().ok_or(anyhow!("no input rx"))?;
 
-        let mut tx = self
-            .audio_out
-            .take_tx()
-            .ok_or(anyhow!("no output tx"))?;
+        let mut tx = self.audio_out.take_tx().ok_or(anyhow!("no output tx"))?;
 
         let mut samples = Vec::new();
 
@@ -78,7 +79,6 @@ impl AudioEngineHost {
         self.handle = Some(handle);
         Ok(())
     }
-
 }
 
 impl Drop for AudioEngineHost {
@@ -89,7 +89,5 @@ impl Drop for AudioEngineHost {
                 eprintln!("error joining thread: {:?}", e);
             }
         }
-        
     }
-
 }

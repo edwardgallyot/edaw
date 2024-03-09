@@ -1,12 +1,12 @@
-mod state;
 mod connection;
 mod engine_host;
+mod state;
 mod updater;
 
+use connection::Connection;
 use edaw_messaging::MessageQueue;
 pub use engine_host::*;
 use state::State;
-use connection::Connection;
 use updater::Updater;
 
 pub struct AudioEngine {
@@ -34,13 +34,14 @@ impl AudioEngine {
 
     fn prepare(&mut self) -> anyhow::Result<()> {
         let mut message_queue = MessageQueue::new();
-        self.connection.start_connection_thread(&mut message_queue)?;
+        self.connection
+            .start_connection_thread(&mut message_queue)?;
         self.updater.start_updates_thread(&mut message_queue)?;
         Ok(())
     }
 
     fn make_dual_mono(&mut self, data: &mut [f32]) {
-        data.chunks_exact_mut(2).for_each(|samples|{
+        data.chunks_exact_mut(2).for_each(|samples| {
             if let [left, right] = samples {
                 *right = *left;
             } else {
@@ -52,7 +53,7 @@ impl AudioEngine {
     }
 
     fn apply_hard_clip(&mut self, data: &mut [f32], hard_clip_threshold: f32) {
-        data.iter_mut().for_each(|s|{
+        data.iter_mut().for_each(|s| {
             if *s > hard_clip_threshold {
                 *s = hard_clip_threshold;
             } else if *s < -hard_clip_threshold {

@@ -7,16 +7,14 @@ pub struct UpdateManager {
 
 impl UpdateManager {
     pub fn new(rx: MessageRx) -> UpdateManager {
-        UpdateManager {
-            rx          
-        }
+        UpdateManager { rx }
     }
 
     pub fn handle_updates(&mut self) -> Result<()> {
         match self.rx.recv() {
-            Ok(Some(m))  => println!("message received: {:?}", m),
+            Ok(Some(m)) => println!("message received: {:?}", m),
             Err(e) => eprintln!("error receiving: {}", e),
-            Ok(None) => {},
+            Ok(None) => {}
         };
         Ok(())
     }

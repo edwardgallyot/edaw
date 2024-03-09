@@ -1,5 +1,5 @@
-use strum::EnumIter;
 use crossterm::event::KeyCode;
+use strum::EnumIter;
 
 #[derive(PartialEq, Debug, Default, EnumIter)]
 #[repr(u8)]
@@ -17,15 +17,9 @@ impl ConnectionScreen {
     pub fn handle_key_press(&mut self, code: &KeyCode) {
         match code {
             KeyCode::Enter => self.handle_enter_key(),
-            KeyCode::Char('k') |
-            KeyCode::Up |
-            KeyCode::PageUp 
-                => self.handle_up_key(),
-            KeyCode::Char('j') |
-            KeyCode::Down |
-            KeyCode::PageDown 
-                => self.handle_down_key(),
-            _ => {},
+            KeyCode::Char('k') | KeyCode::Up | KeyCode::PageUp => self.handle_up_key(),
+            KeyCode::Char('j') | KeyCode::Down | KeyCode::PageDown => self.handle_down_key(),
+            _ => {}
         }
     }
 

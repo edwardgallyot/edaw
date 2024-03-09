@@ -1,17 +1,15 @@
 use std::net::TcpStream;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 pub struct Connection {
-    connection: Option<TcpStream>
+    connection: Option<TcpStream>,
 }
 
 impl Connection {
     pub fn new() -> Connection {
         let connection = None;
-        Connection {
-            connection,
-        }
+        Connection { connection }
     }
 
     pub fn create_connection(&mut self, addr: &str) -> Result<()> {

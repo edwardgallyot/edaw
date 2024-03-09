@@ -13,7 +13,7 @@ pub enum MainScreen {
     #[default]
     Main,
     Connection,
-    Samples
+    Samples,
 }
 
 #[derive(PartialEq, Debug, Default, EnumIter)]
@@ -36,32 +36,34 @@ impl Screen {
 
     pub fn handle_key_press(&mut self, code: &KeyCode) {
         match self {
-            Screen::Main                |
-            Screen::Connection(None)    |
-            Screen::Samples 
-                => self.handle_main_screen(code),
-            Screen::Connection(Some(_)) if *code == KeyCode::Esc => *self = Screen::Connection(None),
-            _ => {},
+            Screen::Main | Screen::Connection(None) | Screen::Samples => {
+                self.handle_main_screen(code)
+            }
+
+            Screen::Connection(Some(c)) => {
+                match code {
+                    KeyCode::Esc | KeyCode::Char('q') => *self = Screen::Connection(None),
+                    _ => c.handle_key_press(code),
+                };
+            }
         }
     }
 
     fn handle_main_screen(&mut self, code: &KeyCode) {
         match code {
-            KeyCode::Char('k')  |
-            KeyCode::Up         |
-            KeyCode::PageUp     => self.handle_up_key(),
-            KeyCode::Char('j')  |
-            KeyCode::Down       |
-            KeyCode::PageDown   => self.handle_down_key(),
-            KeyCode::Enter      => self.handle_enter_key(),
-            _ => {},
+            KeyCode::Char('k') | KeyCode::Up | KeyCode::PageUp => self.handle_up_key(),
+            KeyCode::Char('j') | KeyCode::Down | KeyCode::PageDown => self.handle_down_key(),
+            KeyCode::Enter => self.handle_enter_key(),
+            _ => {}
         }
     }
 
     fn handle_enter_key(&mut self) {
         match self {
-            Screen::Connection(None) => *self = Screen::Connection(Some(ConnectionScreen::default())),
-            _ => {},
+            Screen::Connection(None) => {
+                *self = Screen::Connection(Some(ConnectionScreen::default()))
+            }
+            _ => {}
         }
     }
 

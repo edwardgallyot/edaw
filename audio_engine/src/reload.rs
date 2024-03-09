@@ -20,11 +20,11 @@ pub fn build(num_samples_per_channel: usize, num_channels: usize) -> State {
 }
 
 #[no_mangle]
-pub fn load(state: &mut State)  {
+pub fn load(state: &mut State) {
     if let Some(s) = state.engine_host.as_mut() {
         match s.start() {
             Err(e) => eprintln!("error starting engine host: {}", e),
-            Ok(_) => {},
+            Ok(_) => {}
         }
     }
 }

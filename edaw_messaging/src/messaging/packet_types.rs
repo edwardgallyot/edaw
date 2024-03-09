@@ -1,8 +1,8 @@
 mod ping;
 pub use ping::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub enum Message {

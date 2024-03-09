@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Ping {
@@ -7,9 +7,6 @@ pub struct Ping {
 
 impl Ping {
     pub fn new(time: u64) -> Ping {
-        Ping {
-            time,
-        } 
+        Ping { time }
     }
 }
-

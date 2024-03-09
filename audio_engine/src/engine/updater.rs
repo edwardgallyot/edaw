@@ -1,9 +1,16 @@
 mod update_manager;
 
-use std::{thread::{JoinHandle, self, Thread}, sync::{atomic::{AtomicBool, Ordering::Relaxed}, Arc}, time};
-use anyhow::{Result, anyhow};
-use edaw_messaging::{Message, MessageQueue};
 use self::update_manager::UpdateManager;
+use anyhow::{anyhow, Result};
+use edaw_messaging::{Message, MessageQueue};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc,
+    },
+    thread::{self, JoinHandle, Thread},
+    time,
+};
 
 const SLEEP_TIME_MS: u64 = 1;
 
@@ -17,11 +24,9 @@ impl Updater {
     pub fn new() -> Updater {
         Updater::default()
     }
-   
+
     pub fn start_updates_thread(&mut self, message_queue: &mut MessageQueue) -> Result<()> {
-        let rx = message_queue
-            .take_rx()
-            .ok_or(anyhow!("no rx"))?;
+        let rx = message_queue.take_rx().ok_or(anyhow!("no rx"))?;
 
         let mut manager = UpdateManager::new(rx);
 

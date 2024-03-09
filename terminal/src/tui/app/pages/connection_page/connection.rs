@@ -1,4 +1,4 @@
-use std::{net::{TcpStream, Ipv4Addr}, str::FromStr};
+use std::net::TcpStream;
 
 use anyhow::{Result, anyhow};
 
@@ -15,8 +15,12 @@ impl Connection {
     }
 
     pub fn create_connection(&mut self, addr: &str) -> Result<()> {
-        let stream = TcpStream::connect(addr)?;
-        self.connection = Some(stream);
+        if let None = self.connection {
+            let stream = TcpStream::connect(addr)?;
+            self.connection = Some(stream);
+        } else {
+            return Err(anyhow!("already exists"));
+        }
         Ok(())
     }
 
@@ -25,5 +29,12 @@ impl Connection {
             s.shutdown(std::net::Shutdown::Both)?;
         }
         Err(anyhow!("no connection"))
+    }
+
+    pub fn exists(&self) -> bool {
+        match self.connection {
+            Some(_) => true,
+            None => false,
+        }
     }
 }

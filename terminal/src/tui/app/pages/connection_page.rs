@@ -1,6 +1,6 @@
 mod connection;
 
-use crate::tui::app::screens::ConnectionScreen;
+use crate::tui::app::screens::{ConnectionScreen, ConnectStatus};
 use connection::Connection;
 use crossterm::event::KeyCode;
 
@@ -50,6 +50,10 @@ impl ConnectionPage {
         self.error_string.as_ref()
     }
 
+    pub fn clear_error_string(&mut self) {
+        self.error_string = None;
+    }
+
     fn handle_editing_screen(&mut self, code: &KeyCode) {
         if let KeyCode::Char(c) = code {
             self.addr_input.push(*c);
@@ -62,9 +66,10 @@ impl ConnectionPage {
     fn handle_connecting_screen(&mut self, screen: &mut ConnectionScreen) {
         if let Err(e) = self.connection.create_connection(&self.addr_input) {
             self.error_string = Some(e.to_string());
+            *screen = ConnectionScreen::Connect(ConnectStatus::Error);
+        } else {
+            *screen = ConnectionScreen::Connect(ConnectStatus::Connected);
         }
-
-        *screen = ConnectionScreen::Connect;
     }
 
     fn handle_disconnecting_screen(&mut self, screen: &mut ConnectionScreen) {

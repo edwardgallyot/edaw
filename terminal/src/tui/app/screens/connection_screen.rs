@@ -1,5 +1,15 @@
+use std::default;
+
 use crossterm::event::KeyCode;
 use strum::EnumIter;
+
+#[derive(PartialEq, Debug, Default, EnumIter)]
+pub enum ConnectStatus {
+    #[default]
+    ReadyToConnect,
+    Connected,
+    Error,
+}
 
 #[derive(PartialEq, Debug, Default, EnumIter)]
 #[repr(u8)]
@@ -7,7 +17,7 @@ pub enum ConnectionScreen {
     #[default]
     Edit,
     Editing,
-    Connect,
+    Connect(ConnectStatus),
     Connecting,
     Disconnect,
     Disconnecting,
@@ -18,7 +28,8 @@ impl ConnectionScreen {
         match self {
             ConnectionScreen::Edit => "Edit",
             ConnectionScreen::Editing => "Editing",
-            ConnectionScreen::Connect => "Connect",
+            ConnectionScreen::Connect(ConnectStatus::Connected) => "Connected",
+            ConnectionScreen::Connect(ConnectStatus::Error | ConnectStatus::ReadyToConnect) => "Connect",
             ConnectionScreen::Connecting => "Connecting",
             ConnectionScreen::Disconnect => "Disconnect",
             ConnectionScreen::Disconnecting => "Disconnecting",
@@ -37,25 +48,26 @@ impl ConnectionScreen {
         match self {
             ConnectionScreen::Edit => *self = ConnectionScreen::Editing,
             ConnectionScreen::Editing => *self = ConnectionScreen::Edit,
-            ConnectionScreen::Connect => *self = ConnectionScreen::Connecting,
-            ConnectionScreen::Connecting => *self = ConnectionScreen::Connect,
+            ConnectionScreen::Connect(ConnectStatus::Error) => *self = ConnectionScreen::Connect(ConnectStatus::ReadyToConnect),
+            ConnectionScreen::Connect(ConnectStatus::Connected) => {},
+            ConnectionScreen::Connect(ConnectStatus::ReadyToConnect) => *self = ConnectionScreen::Connecting,
             ConnectionScreen::Disconnect => *self = ConnectionScreen::Disconnecting,
-            ConnectionScreen::Disconnecting => *self = ConnectionScreen::Disconnect,
+            _ => {},
         }
     }
 
     fn handle_up_key(&mut self) {
         match self {
-            ConnectionScreen::Connect => *self = ConnectionScreen::Edit,
-            ConnectionScreen::Disconnect => *self = ConnectionScreen::Connect,
+            ConnectionScreen::Connect(_) => *self = ConnectionScreen::Edit,
+            ConnectionScreen::Disconnect => *self = ConnectionScreen::Connect(ConnectStatus::ReadyToConnect),
             _ => {}
         }
     }
 
     fn handle_down_key(&mut self) {
         match self {
-            ConnectionScreen::Edit => *self = ConnectionScreen::Connect,
-            ConnectionScreen::Connect => *self = ConnectionScreen::Disconnect,
+            ConnectionScreen::Edit => *self = ConnectionScreen::Connect(ConnectStatus::ReadyToConnect),
+            ConnectionScreen::Connect(_) => *self = ConnectionScreen::Disconnect,
             _ => {}
         }
     }

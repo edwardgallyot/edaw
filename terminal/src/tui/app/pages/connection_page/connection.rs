@@ -1,10 +1,12 @@
-use std::net::TcpStream;
+use std::{net::{TcpStream, SocketAddr}, time::Duration, str::FromStr};
 
 use anyhow::{anyhow, Result};
 
 pub struct Connection {
     connection: Option<TcpStream>,
 }
+
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl Connection {
     pub fn new() -> Connection {
@@ -14,7 +16,8 @@ impl Connection {
 
     pub fn create_connection(&mut self, addr: &str) -> Result<()> {
         if let None = self.connection {
-            let stream = TcpStream::connect(addr)?;
+            let sock_addr = SocketAddr::from_str(addr)?;
+            let stream = TcpStream::connect_timeout(&sock_addr, CONNECTION_TIMEOUT)?;
             self.connection = Some(stream);
         } else {
             return Err(anyhow!("already exists"));
@@ -33,6 +36,14 @@ impl Connection {
         match self.connection {
             Some(_) => true,
             None => false,
+        }
+    }
+}
+
+impl Drop for Connection {
+    fn drop(&mut self) {
+        if let Err(e) = self.shutdown_connection() {
+            eprintln!("error shutting down connection: {}", e);
         }
     }
 }

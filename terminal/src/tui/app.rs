@@ -35,6 +35,10 @@ impl App {
         &self.current_screen
     }
 
+    pub fn connection_page(&self) -> &ConnectionPage {
+        &self.connection_page
+    }
+
     pub fn handle_drawing(
         &self,
         terminal: &mut ratatui::Terminal<CrosstermBackend<Stdout>>,
@@ -55,6 +59,13 @@ impl App {
     }
 
     fn handle_key_event(&mut self, code: KeyCode) -> anyhow::Result<ControlFlow<()>> {
+        // We quit out of the main screen on a 'q'
+        if let Screen::Main = self.current_screen {
+            if let KeyCode::Char('q') | KeyCode::Esc = code {
+                return Ok(ControlFlow::Break(()));
+            }
+        }
+
         // Update the screen selection
         self.current_screen.handle_key_press(&code);
 

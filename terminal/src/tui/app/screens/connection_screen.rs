@@ -14,6 +14,16 @@ pub enum ConnectionScreen {
 }
 
 impl ConnectionScreen {
+    pub fn display_string(&self) -> &'static str {
+        match self {
+            ConnectionScreen::Edit => "Edit",
+            ConnectionScreen::Editing => "Editing",
+            ConnectionScreen::Connect => "Connect",
+            ConnectionScreen::Connecting => "Connecting",
+            ConnectionScreen::Disconnect => "Disconnect",
+            ConnectionScreen::Disconnecting => "Disconnecting",
+        }
+    }
     pub fn handle_key_press(&mut self, code: &KeyCode) {
         match code {
             KeyCode::Enter => self.handle_enter_key(),

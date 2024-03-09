@@ -1,30 +1,18 @@
-use super::{super::screens::Screen, App};
+use super::{super::screens::Screen, draw_ui_title, get_inner_area, App};
 
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::Constraint,
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{block::Title, Block, Borders, List, ListItem},
+    widgets::{List, ListItem},
     Frame,
 };
 use strum::IntoEnumIterator;
 
-const INNER_OFFSET: u16 = 3;
-
 pub fn draw_main_ui(f: &mut Frame, app: &App) {
-    let title = Title::from("Edaw Terminal").alignment(ratatui::layout::Alignment::Center);
+    draw_ui_title(f, "Edaw Terminal");
 
-    let title_block = Block::default()
-        .borders(Borders::ALL)
-        .title(title)
-        .style(Style::default());
-    
-    f.render_widget(title_block, f.size());
-
-    let mut inner_area = f.size();
-
-    inner_area.width -= INNER_OFFSET;
-    inner_area.height -= INNER_OFFSET;
+    let inner_area = get_inner_area(f);
 
     let mut constraints = vec![];
     for _ in Screen::iter() {
@@ -43,20 +31,10 @@ pub fn draw_main_ui(f: &mut Frame, app: &App) {
         };
 
         let new_item = ListItem::new(Line::from(Span::styled(display_string, style)));
-
         list_items.push(new_item);
     });
 
     let list = List::new(list_items);
 
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(constraints)
-        .split(inner_area);
-
-
-    for chunk in chunks.iter() {
-        f.render_widget(list, *chunk);
-    }
-
+    f.render_widget(list, inner_area);
 }

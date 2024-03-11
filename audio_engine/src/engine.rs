@@ -2,12 +2,14 @@ mod connection;
 mod engine_host;
 mod state;
 mod updater;
+mod sampler;
 
 use connection::Connection;
 use edaw_messaging::MessageQueue;
 pub use engine_host::*;
 use state::State;
 use updater::Updater;
+use sampler::Sampler;
 
 pub struct AudioEngine {
     num_samples_per_channel: usize,
@@ -15,6 +17,7 @@ pub struct AudioEngine {
     state: State,
     connection: Connection,
     updater: Updater,
+    sampler: Sampler,
 }
 
 impl AudioEngine {
@@ -22,6 +25,7 @@ impl AudioEngine {
         let state = State::new();
         let connection = Connection::new();
         let updater = Updater::new();
+        let sampler = Sampler::new(num_samples_per_channel, num_channels);
 
         Self {
             num_samples_per_channel,
@@ -29,6 +33,7 @@ impl AudioEngine {
             state,
             connection,
             updater,
+            sampler,
         }
     }
 
@@ -40,6 +45,7 @@ impl AudioEngine {
         Ok(())
     }
 
+    // TODO: More flexible on channel layouts?
     fn make_dual_mono(&mut self, data: &mut [f32]) {
         data.chunks_exact_mut(2).for_each(|samples| {
             if let [left, right] = samples {
@@ -66,9 +72,12 @@ impl AudioEngine {
         data.iter_mut().for_each(|s| {
             *s *= 1.0;
         });
+
         self.make_dual_mono(data);
 
-        let hard_clip_threshold = 1.0;
+        self.sampler.next_block(data);
+
+        // let hard_clip_threshold = 1.0;
         let hard_clip_threshold = 0.01;
         self.apply_hard_clip(data, hard_clip_threshold);
     }

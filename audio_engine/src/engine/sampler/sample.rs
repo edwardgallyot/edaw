@@ -15,6 +15,5 @@ impl Sample {
 
     pub fn from_path(path: &str) -> Sample {
         todo!()
-          
     }
 }

@@ -23,6 +23,5 @@ impl Sampler {
     }
 
     pub fn next_block(&self, data: &mut [f32]) {
-        
     }
 }

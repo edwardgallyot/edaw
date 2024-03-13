@@ -11,5 +11,7 @@ pub struct SampleId {
     velocity: Velocity, 
     round_robin: RoundRobin,
     note: Note,
-    is_sustained: bool,    
+    is_sustained: bool,
 }
+
+

@@ -10,4 +10,5 @@ hot-lib-reloader = "^0.6"
 audio_engine = { path = "../audio_engine" } 
 anyhow = "1.0"
 cpal = { version = "0.15", features = ["jack"] }
+midir = { version = "0.9.1", features = ["jack"] }
 ringbuf = "0.3"

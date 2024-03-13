@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use crossbeam::channel::Sender;
+use crossbeam_channel::Sender;
 
 use crate::Message;
 

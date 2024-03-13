@@ -31,10 +31,6 @@ pub struct AudioIo {
 }
 
 impl AudioIo {
-    pub fn new() -> AudioIo {
-        AudioIo::default()
-    }
-
     pub fn get_total_buffer_size(&self) -> usize {
         self.num_channels * self.num_samples_per_channel
     }
@@ -160,7 +156,7 @@ impl AudioIo {
         Ok(())
     }
 
-    pub fn configure(&mut self) -> anyhow::Result<()> {
+    pub fn from_cli() -> anyhow::Result<AudioIo> {
         let host = AudioIo::configure_host()?;
 
         println!("Configure Input Device: ");
@@ -186,6 +182,8 @@ impl AudioIo {
             return Err(anyhow!("no supported output buffer size"));
         }
 
+        let num_samples_per_channel: usize;
+
         if let Range { min, max } = input_config.buffer_size() {
             if min != max {
                 return Err(anyhow!("buffer min and max don't match"));
@@ -196,20 +194,31 @@ impl AudioIo {
             if max_cmp != *max as usize {
                 return Err(anyhow!("max buffer config doesn't match for i/o"));
             }
-            self.num_samples_per_channel = *max as usize;
+            num_samples_per_channel = *max as usize;
         } else {
             return Err(anyhow!("no supported input buffer size"));
         }
 
-        self.num_channels = output_config.channels() as usize;
+        let num_channels = output_config.channels() as usize;
 
-        self.input_device = Some(input_device);
-        self.output_device = Some(output_device);
+        let input_device = Some(input_device);
+        let output_device = Some(output_device);
 
-        self.input_config = Some(input_config);
-        self.output_config = Some(output_config);
+        let input_config = Some(input_config);
+        let output_config = Some(output_config);
 
-        Ok(())
+        let audio_io = AudioIo {
+            num_channels,
+            num_samples_per_channel,
+            input_device,
+            output_device,
+            input_config,
+            output_config,
+            input_stream: None,
+            output_stream: None,
+        };
+
+        Ok(audio_io)
     }
 
     fn get_user_choice() -> anyhow::Result<usize> {

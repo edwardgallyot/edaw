@@ -1,5 +1,7 @@
 mod audio_io;
+mod midi_io;
 
+use anyhow::{Result, anyhow};
 use hot_lib_reloader::*;
 
 #[hot_module(
@@ -15,24 +17,17 @@ mod hot_lib {
     pub fn subscribe() -> hot_lib_reloader::LibReloadObserver {}
 }
 
-fn main() {
+fn run() -> Result<()> {
     let lib_observer = hot_lib::subscribe();
-    let mut audio_io = audio_io::AudioIo::new();
-
-    if let Err(e) = audio_io.configure() {
-        eprintln!("Error configuring I/O: {}", e);
-        return;
-    }
-
+    let mut midi_io = midi_io::MidiIo::from_cli()?;
+    let mut audio_io = audio_io::AudioIo::from_cli()?;
     loop {
         if audio_io.get_num_samples_per_channel() == 0 {
-            eprintln!("no samples");
-            return;
+            return Err(anyhow!("no samples"));
         }
 
         if audio_io.get_num_channels() == 0 {
-            eprintln!("no channels");
-            return;
+            return Err(anyhow!("no channels"));
         }
 
         let mut state = hot_lib::build(
@@ -46,8 +41,7 @@ fn main() {
             let mut engine_in = &mut s.audio_in;
             let mut engine_out = &mut s.audio_out;
             if let Err(e) = audio_io.start(&mut engine_in, &mut engine_out) {
-                eprintln!("Error starting the audio engine: {}", e);
-                return;
+                return Err(anyhow!("Error starting the audio engine: {}", e));
             }
         }
 
@@ -60,5 +54,12 @@ fn main() {
         hot_lib::save(state);
 
         lib_observer.wait_for_reload();
+    }
+
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error running app: {}", e);
     }
 }

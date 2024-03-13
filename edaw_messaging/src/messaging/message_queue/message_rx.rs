@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use crossbeam::channel::{Receiver, TryRecvError};
+use crossbeam_channel::{Receiver, TryRecvError};
 
 use crate::Message;
 

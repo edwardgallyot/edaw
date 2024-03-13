@@ -4,7 +4,7 @@ mod message_tx;
 pub use message_rx::MessageRx;
 pub use message_tx::MessageTx;
 
-use crossbeam::channel::bounded;
+use crossbeam_channel::bounded;
 
 pub struct MessageQueue {
     message_tx: Option<MessageTx>,

@@ -6,6 +6,6 @@ members = [
     "terminal_run",
     "audio_engine_run",
     "edaw_messaging"
-]
+, "edaw_sampler"]
 
 resolver = "2"

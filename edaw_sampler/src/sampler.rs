@@ -10,8 +10,7 @@ use sample::Sample;
 pub struct Sampler {
     num_samples_per_channel: usize,
     num_channels: usize,
-    samples: FxHashMap<SampleId, Sample>,
-    sample_loader
+    samples: FxHashMap<SampleId, Sample>
 }
 
 impl Sampler {

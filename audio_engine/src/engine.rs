@@ -1,15 +1,18 @@
+// Modules
 mod connection;
 mod engine_host;
 mod state;
 mod updater;
-mod sampler;
 
+// Imports
 use connection::Connection;
 use edaw_messaging::MessageQueue;
-pub use engine_host::*;
 use state::State;
 use updater::Updater;
-use sampler::Sampler;
+use edaw_sampler::Sampler;
+
+// Re-exports
+pub use engine_host::*;
 
 pub struct AudioEngine {
     num_samples_per_channel: usize,

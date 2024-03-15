@@ -19,9 +19,12 @@ mod hot_lib {
 
 fn run() -> Result<()> {
     let lib_observer = hot_lib::subscribe();
-    let mut midi_io = midi_io::MidiIo::from_cli()?;
+
     let mut audio_io = audio_io::AudioIo::from_cli()?;
+    let mut midi_io = midi_io::MidiIo::from_cli()?;
+
     loop {
+        midi_io.start()?;
         if audio_io.get_num_samples_per_channel() == 0 {
             return Err(anyhow!("no samples"));
         }
@@ -40,26 +43,24 @@ fn run() -> Result<()> {
         if let Some(s) = &mut state.engine_host {
             let mut engine_in = &mut s.audio_in;
             let mut engine_out = &mut s.audio_out;
-            if let Err(e) = audio_io.start(&mut engine_in, &mut engine_out) {
-                return Err(anyhow!("Error starting the audio engine: {}", e));
-            }
+            audio_io.start(&mut engine_in, &mut engine_out)?;
         }
 
         lib_observer.wait_for_about_to_reload();
 
-        if let Err(e) = audio_io.stop() {
-            eprintln!("Error stopping the audio engine: {}", e);
-        }
-
-        hot_lib::save(state);
 
         lib_observer.wait_for_reload();
+
+        audio_io.stop()?;
+        midi_io.stop()?;
+
+        hot_lib::save(state);
     }
 
 }
 
 fn main() {
     if let Err(e) = run() {
-        eprintln!("Error running app: {}", e);
+        eprintln!("Error running app: {}, try again...", e);
     }
 }

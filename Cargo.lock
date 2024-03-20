@@ -382,8 +382,8 @@ name = "edaw_sampler"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "crossbeam-channel",
  "fxhash",
+ "ringbuf",
 ]
 
 [[package]]

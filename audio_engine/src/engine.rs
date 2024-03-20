@@ -83,8 +83,8 @@ impl AudioEngine {
                 // For debugging new packets
                 // print_midi_message(p.bytes())?;
                 
-                if let Some(n) = convert_midi_for_sampler(p.bytes()) {
-                    println!("parsed note: {:?}", n);
+                if let (Some(n), Some(v)) = convert_midi_for_sampler(p.bytes()) {
+                    println!("parsed note: {:?}, velocity: {:?} ", n, v);
                 }
             }
 

@@ -1,7 +1,8 @@
 use std::io::{stdout, Write, stdin};
 
 use anyhow::{Result, anyhow};
-use midir::{MidiInput, Ignore, MidiInputConnection, MidiInputPort, MidiOutputConnection};
+use audio_engine::midi_channel::{MidiChannel, MidiPacket};
+use midir::{MidiInput, Ignore, MidiInputConnection};
 
 pub struct MidiIo {
     port_index: Option<usize>,
@@ -48,31 +49,47 @@ impl MidiIo {
         Ok(midi_io)
     }
 
-    fn build_connection(midi_in: MidiInput, port: &MidiInputPort) -> Result<MidiInputConnection<()>> {
-        midi_in.connect(
-            port,
-            "midir-port",
-            move |s, m, _|{
-                println!("{}: {:?} (len = {})", s, m, m.len());
-            },
-            (),
-        ).ok().ok_or(anyhow!("failed to connect"))
-    }
-
-    pub fn start(&mut self) -> Result<()> {
+    pub fn start(&mut self, engine_in: &mut MidiChannel) -> Result<()> {
         let mut midi_in = MidiInput::new("some input")?;
         midi_in.ignore(Ignore::None);
 
         let ports = midi_in.ports();
+
+        let port_index =  self
+            .port_index
+            .ok_or(anyhow!("no port index configured"))?;
+
         let port = ports
-            .get(self
-                .port_index
-                .ok_or(anyhow!("no port index configured"))?
-            ).ok_or(anyhow!("couldn't find port"))?;
+            .get(port_index)
+            .ok_or(anyhow!("couldn't find port"))?;
 
-        let conn = MidiIo::build_connection(midi_in, &port)?;
+        let mut tx = engine_in
+            .take_tx()
+            .ok_or(anyhow!("no midi tx"))?;
+
+        let conn = midi_in.connect(
+            port,
+            "midir-port",
+            move |_s, m, _|{
+                let message;
+                match MidiPacket::from_bytes(m) {
+                    Err(e) => {
+                        eprintln!("error converting midi packet: {}", e);
+                        return;
+                    },
+                    Ok(m) => {
+                        message = m;
+                    },
+                }
+                
+                if let Err(e) = tx.push(message) {
+                    eprintln!("error pushing message: {e}");
+                }
+            },
+            (),
+        ).ok().ok_or(anyhow!("failed to connect"))?;
+
         self.conn = Some(conn);
-
         Ok(())
     }
 

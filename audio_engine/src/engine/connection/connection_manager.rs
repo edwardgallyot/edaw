@@ -43,6 +43,7 @@ impl ConnectionManager {
         let map = FxHashMap::default();
 
         let mut token = Token(SERVER.0 + 1);
+
         let next_available_client = ConnectionManager::get_next_token(&mut token);
 
         let connection_manager = ConnectionManager {

@@ -3,7 +3,9 @@ mod connection;
 mod engine_host;
 mod state;
 mod updater;
+mod midi_parser;
 
+use anyhow::Result;
 // Imports
 use connection::Connection;
 use edaw_messaging::MessageQueue;
@@ -13,6 +15,10 @@ use edaw_sampler::Sampler;
 
 // Re-exports
 pub use engine_host::*;
+
+use crate::midi_channel::{MidiPacketBuffer, MidiPacket};
+
+use self::midi_parser::{print_midi_message, convert_midi_for_sampler};
 
 pub struct AudioEngine {
     num_samples_per_channel: usize,
@@ -42,8 +48,7 @@ impl AudioEngine {
 
     fn prepare(&mut self) -> anyhow::Result<()> {
         let mut message_queue = MessageQueue::new();
-        self.connection
-            .start_connection_thread(&mut message_queue)?;
+        self.connection.start_connection_thread(&mut message_queue)?;
         self.updater.start_updates_thread(&mut message_queue)?;
         Ok(())
     }
@@ -71,7 +76,25 @@ impl AudioEngine {
         });
     }
 
-    pub fn process(&mut self, data: &mut [f32]) {
+    fn parse_midi_packets(&mut self, packets: &[Option<MidiPacket>]) -> Result<()> {
+        for packet in packets {
+            if let Some(p) = packet {
+
+                // For debugging new packets
+                // print_midi_message(p.bytes())?;
+                
+                if let Some(n) = convert_midi_for_sampler(p.bytes()) {
+                    println!("parsed note: {:?}", n);
+                }
+            }
+
+        }
+        Ok(())
+    }
+
+    pub fn process(&mut self, data: &mut [f32], midi: &mut MidiPacketBuffer) {
+        let _ = self.parse_midi_packets(midi.packets());
+
         data.iter_mut().for_each(|s| {
             *s *= 1.0;
         });

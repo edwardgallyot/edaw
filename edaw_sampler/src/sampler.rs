@@ -6,6 +6,7 @@ use fxhash::FxHashMap;
 use sample_id::SampleId;
 use sample::Sample;
 
+pub use sample_id::Note;
 
 pub struct Sampler {
     num_samples_per_channel: usize,

@@ -14,6 +14,7 @@ impl AudioRx {
     pub fn new(consumer: HeapRbRx) -> AudioRx {
         AudioRx { consumer }
     }
+
     pub fn collect_samples(&mut self, samples: &mut [f32]) {
         let mut received = 0;
         let time = std::time::Instant::now();

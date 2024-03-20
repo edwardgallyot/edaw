@@ -1,6 +1,8 @@
 mod audio_io;
 mod midi_io;
 
+use std::thread;
+
 use anyhow::{Result, anyhow};
 use hot_lib_reloader::*;
 
@@ -18,13 +20,18 @@ mod hot_lib {
 }
 
 fn run() -> Result<()> {
+
+    // This is a hack to get the stdout from build to clear before the user
+    // selection. Since the hot reload host is just a dev tool this doesn't really
+    // matter.
+    thread::sleep(std::time::Duration::from_secs_f32(2.0));
+
     let lib_observer = hot_lib::subscribe();
 
     let mut audio_io = audio_io::AudioIo::from_cli()?;
     let mut midi_io = midi_io::MidiIo::from_cli()?;
 
     loop {
-        midi_io.start()?;
         if audio_io.get_num_samples_per_channel() == 0 {
             return Err(anyhow!("no samples"));
         }
@@ -41,6 +48,8 @@ fn run() -> Result<()> {
         hot_lib::load(&mut state);
 
         if let Some(s) = &mut state.engine_host {
+            let mut engine_in = &mut s.midi_in;
+            midi_io.start(&mut engine_in)?;
             let mut engine_in = &mut s.audio_in;
             let mut engine_out = &mut s.audio_out;
             audio_io.start(&mut engine_in, &mut engine_out)?;

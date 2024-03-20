@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(Hash, PartialEq, Eq, Debug)]
 pub enum Velocity {
     V1,
@@ -6,5 +8,4 @@ pub enum Velocity {
     V4,
     V5,
 }
-
 
